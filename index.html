@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>东华理工的Leaflet地图</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map { height: 600px; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <!-- # 或直接在HTML中引入CDN   在项目中安装Turf.js-->
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+    <script>
+     // 定义底图图层
+      const baseLayers = {
+        "街道图": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap'
+        }),
+        "卫星图": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+          attribution: '© Esri'
+        })
+      };
+
+    // 初始化地图时添加默认图层
+    const map = L.map('map').setView([28.7218, 115.8212], 13);
+    baseLayers["卫星图"].addTo(map);
+
+    // 写一个标签定位在东华理工
+    const marker= L.marker([28.7218, 115.8212]).addTo(map)
+    marker.bindPopup('东华理工大学').openPopup
+
+    //导入geojson江西区划的数据
+    fetch('jiangxi.json')
+      .then(response=>response.json())
+      .then(data=>{
+        // L.geoJSON(data).addTo(map)
+
+        // 定义叠加图层（如江西省行政区划）
+        const overlayLayers = {
+                "行政区划": L.geoJSON(data, { 
+                  style: { color: '#ff0000', weight: 2 }
+                })
+              };
+
+        // 添加图层控件
+        L.control.layers(baseLayers, overlayLayers, {
+          collapsed: false  // 展开显示控件
+        }).addTo(map);
+
+      })
+
+    
+    //3.以东华理工做为中心做缓冲区分析
+      // 定义中心点
+      const center = turf.point([115.8212, 28.7218]);  // 注意Turf坐标顺序为[经度, 纬度]
+
+      // 生成缓冲区（10公里）
+      const buffer = turf.buffer(center, 10, { units: 'kilometers' });
+
+      // 将缓冲区添加到地图
+      L.geoJSON(buffer, {
+        style: { color: '#3388ff', fillOpacity: 0.1 }
+      }).addTo(map);
+
+     
+    //4.点击后取消原缓冲区，以点击的点建立半径为5km的缓冲区
+    map.on('click',(e)=>{
+      //取消原有缓冲区和标签
+      if(window.bufferLayer){
+        map.removeLayer(window.bufferLayer)
+      }
+     if(window.markerLayer){
+      map.removeLayer(window.markerLayer)
+     }
+     //建立新的缓冲区和标签
+      const center=turf.point([e.latlng.lng,e.latlng.lat])
+      const buffer=turf.buffer(center,5,{units:'kilometers'})
+      //添加新标签
+      window.markerLayer=L.marker(e.latlng).addTo(map)
+
+      //添加新图层
+      window.bufferLayer=L.geoJSON(buffer,{
+        style:{color: '#ff0000', fillOpacity: 0.1}
+      }).addTo(map)
+
+ 
+     
+    })
+   
+    </script>
+</body>
+</html>
